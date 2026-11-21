@@ -16,6 +16,7 @@ to write elsewhere (for example, MAKEFUN_OUTPUT_DIR=out).
 import hashlib
 import os
 import shutil
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,9 +32,25 @@ def sha256_of(path):
     return h.hexdigest()
 
 
+def png_dimensions(path):
+    """Read width and height from a PNG's IHDR chunk (stdlib only)."""
+    with open(path, "rb") as f:
+        header = f.read(33)
+    if len(header) < 33 or header[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    if header[12:16] != b"IHDR":
+        return None
+    width, height = struct.unpack(">II", header[16:24])
+    return width, height
+
+
 def main():
     if not os.path.isfile(SOURCE):
         print("entry.png not found beside main.py", file=sys.stderr)
+        return 1
+    dims = png_dimensions(SOURCE)
+    if dims != (1024, 1024):
+        print("entry.png is not 1024x1024: %r" % (dims,), file=sys.stderr)
         return 1
     if EXPECTED_SHA256 != "PLACEHOLDER":
         actual = sha256_of(SOURCE)
